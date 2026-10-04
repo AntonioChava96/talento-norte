@@ -100,7 +100,7 @@ footer button{background:none;border:0;color:var(--mut);cursor:pointer;font:inhe
 <a class="wa" id="wa" href="#" target="_blank" rel="noopener">WhatsApp</a>
 
 <div id="adm"><aside id="side"></aside><div id="main"></div></div>
-<div id="lgn"><form class="card" id="lf"><h3 class="f" style="margin-bottom:16px">Acceso administrador</h3><div class="fld"><label for="lu">Usuario o correo</label><input id="lu" autocomplete="username"></div><div class="fld"><label for="lp">Contraseña</label><input id="lp" type="password" autocomplete="current-password"></div><p id="lerr" role="alert"></p><button class="btn" type="submit">Entrar</button> <button class="btn o" type="button" id="lx">Cancelar</button></form></div>
+<div id="lgn"><form class="card" id="lf"><h3 class="f" style="margin-bottom:16px">Acceso administrador</h3><div class="fld"><label for="lu">Usuario o celular</label><input id="lu" autocomplete="username"></div><div class="fld"><label for="lp">Contraseña</label><input id="lp" type="password" autocomplete="current-password"></div><p id="lerr" role="alert"></p><button class="btn" type="submit">Entrar</button> <button class="btn o" type="button" id="lx">Cancelar</button></form></div>
 <div id="tst"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -124,6 +124,7 @@ const LBL={general:"General",hero:"Inicio",about:"Nosotros",stats:"Cifras",servi
 const KEY="despacho_cms_v2";
 /* Pega aquí los datos de tu proyecto Supabase (Project URL y clave anon/publishable). Si quedan vacíos, el sitio guarda solo en el navegador. */
 const SB_URL="https://uglqfggvubcrhntzjxnb.supabase.co",SB_KEY="sb_publishable_Gijfh1jawWQCNdkS_74rfg_INIM0-CL";
+const LOGIN_DOMAIN="talentonorte.mx"; /* dominio interno: usuario "admin" entra como admin@talentonorte.mx */
 const sb=SB_URL&&window.supabase?supabase.createClient(SB_URL,SB_KEY):null;
 let D=sb?structuredClone(DEF):load();
 function load(){try{const s=localStorage.getItem(KEY);if(s)return Object.assign(structuredClone(DEF),JSON.parse(s))}catch(e){}return structuredClone(DEF)}
@@ -194,7 +195,7 @@ let fails=0,lockUntil=0;
 async function hp(p,salt){const k=await crypto.subtle.importKey("raw",new TextEncoder().encode(p),"PBKDF2",false,["deriveBits"]);const b=await crypto.subtle.deriveBits({name:"PBKDF2",salt:new TextEncoder().encode(salt),iterations:150000,hash:"SHA-256"},k,256);return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
 let LE="";
 async function auth(u,p){LE="Usuario o contraseña incorrectos.";
- if(sb){const{error}=await sb.auth.signInWithPassword({email:u,password:p});if(error)LE=/confirm/i.test(error.message)?"El correo aún no está confirmado en Supabase.":/invalid login/i.test(error.message)?"Correo o contraseña incorrectos.":"Error de conexión: "+error.message;return !error}
+ if(sb){const{error}=await sb.auth.signInWithPassword({email:u.includes("@")?u:u.toLowerCase().replace(/[\s-]/g,"")+"@"+LOGIN_DOMAIN,password:p});if(error)LE=/confirm/i.test(error.message)?"El correo aún no está confirmado en Supabase.":/invalid login/i.test(error.message)?"Usuario o contraseña incorrectos.":"Error de conexión: "+error.message;return !error}
  if(u.includes("@"))LE="El sitio aún no está conectado a Supabase: revisa SB_URL y SB_KEY en index.html.";
  return u===A.u&&await chk(p)}
 const chk=async p=>A.def?p===DEFPASS:await hp(p,A.s)===A.h;
