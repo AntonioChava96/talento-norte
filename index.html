@@ -123,7 +123,7 @@ contact:{phone:"668 000 0000",whatsapp:"526680000000",email:"contacto@talentonor
 const LBL={general:"General",hero:"Inicio",about:"Nosotros",stats:"Cifras",services:"Soluciones",process:"Proceso",vacancies:"Vacantes",contact:"Contacto",name:"Nombre del despacho",tagline:"Eslogan",color:"Color principal",security:"Seguridad",title:"Título",accent:"Frase destacada (en color)",text:"Texto",cta:"Texto del botón",statNum:"Dato destacado",statLabel:"Descripción del dato",mission:"Misión",vision:"Visión",n:"Cifra",l:"Descripción",t:"Título",d:"Descripción",place:"Ubicación",type:"Tipo de jornada",phone:"Teléfono",whatsapp:"WhatsApp (con lada, sin +)",email:"Correo",addr:"Dirección",hours:"Horario"};
 const KEY="despacho_cms_v2";
 /* Pega aquí los datos de tu proyecto Supabase (Project URL y clave anon/publishable). Si quedan vacíos, el sitio guarda solo en el navegador. */
-const SB_URL="https://uglqfggvubcrhntzjxnb.supabase.co/rest/v1/",SB_KEY="sb_publishable_Gijfh1jawWQCNdkS_74rfg_INIM0-CL";
+const SB_URL="https://uglqfggvubcrhntzjxnb.supabase.co",SB_KEY="sb_publishable_Gijfh1jawWQCNdkS_74rfg_INIM0-CL";
 const sb=SB_URL&&window.supabase?supabase.createClient(SB_URL,SB_KEY):null;
 let D=sb?structuredClone(DEF):load();
 function load(){try{const s=localStorage.getItem(KEY);if(s)return Object.assign(structuredClone(DEF),JSON.parse(s))}catch(e){}return structuredClone(DEF)}
@@ -192,7 +192,11 @@ const DEFPASS="TalentoNorte2026";
 let A=(()=>{try{const x=localStorage.getItem("tn_auth");if(x)return JSON.parse(x)}catch(_){}return{u:"admin",def:true}})();
 let fails=0,lockUntil=0;
 async function hp(p,salt){const k=await crypto.subtle.importKey("raw",new TextEncoder().encode(p),"PBKDF2",false,["deriveBits"]);const b=await crypto.subtle.deriveBits({name:"PBKDF2",salt:new TextEncoder().encode(salt),iterations:150000,hash:"SHA-256"},k,256);return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
-async function auth(u,p){if(sb){const{error}=await sb.auth.signInWithPassword({email:u,password:p});return !error}return u===A.u&&await chk(p)}
+let LE="";
+async function auth(u,p){LE="Usuario o contraseña incorrectos.";
+ if(sb){const{error}=await sb.auth.signInWithPassword({email:u,password:p});if(error)LE=/confirm/i.test(error.message)?"El correo aún no está confirmado en Supabase.":/invalid login/i.test(error.message)?"Correo o contraseña incorrectos.":"Error de conexión: "+error.message;return !error}
+ if(u.includes("@"))LE="El sitio aún no está conectado a Supabase: revisa SB_URL y SB_KEY en index.html.";
+ return u===A.u&&await chk(p)}
 const chk=async p=>A.def?p===DEFPASS:await hp(p,A.s)===A.h;
 $("#open").onclick=()=>{$("#lgn").classList.add("open");$("#lu").focus()};
 $("#lx").onclick=()=>$("#lgn").classList.remove("open");
@@ -200,7 +204,7 @@ $("#lf").onsubmit=async ev=>{ev.preventDefault();
  if(Date.now()<lockUntil)return $("#lerr").textContent="Demasiados intentos. Espera "+Math.ceil((lockUntil-Date.now())/1000)+" s.";
  const u=$("#lu").value.trim(),p=$("#lp").value;
  if(await auth(u,p)){fails=0;$("#lp").value="";$("#lerr").textContent="";$("#lgn").classList.remove("open");$("#adm").classList.add("open");panel()}
- else{if(++fails>=5){lockUntil=Date.now()+60000;fails=0}$("#lerr").textContent="Usuario o contraseña incorrectos."}};
+ else{if(++fails>=5){lockUntil=Date.now()+60000;fails=0}$("#lerr").textContent=LE}};
 function secSb(m){
  m.innerHTML+='<p class="sub">Sesión iniciada con tu cuenta de Supabase. Los usuarios se administran desde el panel de Supabase.</p><div class="fld"><label>Contraseña nueva (mínimo 10 caracteres)</label><input id="sn" type="password" autocomplete="new-password"></div><button class="btn sm" id="ss">Cambiar contraseña</button>';
  $("#ss").onclick=async()=>{const n=$("#sn").value;if(n.length<10)return toast("Mínimo 10 caracteres");const{error}=await sb.auth.updateUser({password:n});toast(error?"No se pudo cambiar":"Contraseña actualizada");$("#sn").value=""}}
