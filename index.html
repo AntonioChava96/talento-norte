@@ -100,9 +100,10 @@ footer button{background:none;border:0;color:var(--mut);cursor:pointer;font:inhe
 <a class="wa" id="wa" href="#" target="_blank" rel="noopener">WhatsApp</a>
 
 <div id="adm"><aside id="side"></aside><div id="main"></div></div>
-<div id="lgn"><form class="card" id="lf"><h3 class="f" style="margin-bottom:16px">Acceso administrador</h3><div class="fld"><label for="lu">Usuario</label><input id="lu" autocomplete="username"></div><div class="fld"><label for="lp">Contraseña</label><input id="lp" type="password" autocomplete="current-password"></div><p id="lerr" role="alert"></p><button class="btn" type="submit">Entrar</button> <button class="btn o" type="button" id="lx">Cancelar</button></form></div>
+<div id="lgn"><form class="card" id="lf"><h3 class="f" style="margin-bottom:16px">Acceso administrador</h3><div class="fld"><label for="lu">Usuario o correo</label><input id="lu" autocomplete="username"></div><div class="fld"><label for="lp">Contraseña</label><input id="lp" type="password" autocomplete="current-password"></div><p id="lerr" role="alert"></p><button class="btn" type="submit">Entrar</button> <button class="btn o" type="button" id="lx">Cancelar</button></form></div>
 <div id="tst"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const DEF={
 general:{name:"Talento Norte",tagline:"Reclutamiento y Selección | Los Mochis",color:"#0e8f89"},
@@ -121,9 +122,14 @@ vacancies:[{t:"Ejecutivo de ventas",place:"Los Mochis, Sin.",type:"Tiempo comple
 contact:{phone:"668 000 0000",whatsapp:"526680000000",email:"contacto@talentonorte.mx",addr:"Av. Ejemplo 123, Col. Centro, Los Mochis, Sinaloa",hours:"Lunes a viernes, 9:00 a 18:00"}};
 const LBL={general:"General",hero:"Inicio",about:"Nosotros",stats:"Cifras",services:"Soluciones",process:"Proceso",vacancies:"Vacantes",contact:"Contacto",name:"Nombre del despacho",tagline:"Eslogan",color:"Color principal",security:"Seguridad",title:"Título",accent:"Frase destacada (en color)",text:"Texto",cta:"Texto del botón",statNum:"Dato destacado",statLabel:"Descripción del dato",mission:"Misión",vision:"Visión",n:"Cifra",l:"Descripción",t:"Título",d:"Descripción",place:"Ubicación",type:"Tipo de jornada",phone:"Teléfono",whatsapp:"WhatsApp (con lada, sin +)",email:"Correo",addr:"Dirección",hours:"Horario"};
 const KEY="despacho_cms_v2";
-let D=load();
+/* Pega aquí los datos de tu proyecto Supabase (Project URL y clave anon/publishable). Si quedan vacíos, el sitio guarda solo en el navegador. */
+const SB_URL="https://uglqfggvubcrhntzjxnb.supabase.co/rest/v1/",SB_KEY="sb_publishable_Gijfh1jawWQCNdkS_74rfg_INIM0-CL";
+const sb=SB_URL&&window.supabase?supabase.createClient(SB_URL,SB_KEY):null;
+let D=sb?structuredClone(DEF):load();
 function load(){try{const s=localStorage.getItem(KEY);if(s)return Object.assign(structuredClone(DEF),JSON.parse(s))}catch(e){}return structuredClone(DEF)}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){toast("No se pudo guardar en este navegador")}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){if(!sb)toast("No se pudo guardar en este navegador")}push()}
+let pt;function push(){if(!sb)return;clearTimeout(pt);pt=setTimeout(async()=>{const{error}=await sb.from("site_content").update({data:D,updated_at:new Date().toISOString()}).eq("id",1);toast(error?"No se pudo guardar en la base de datos":"Guardado")},700)}
+async function pull(){try{const{data,error}=await sb.from("site_content").select("data").eq("id",1).single();if(!error&&data&&data.data&&Object.keys(data.data).length)D=Object.assign(structuredClone(DEF),data.data)}catch(_){}render()}
 const $=s=>document.querySelector(s);
 const e=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function toast(m){const t=$("#tst");t.textContent=m;t.classList.add("on");clearTimeout(toast.k);toast.k=setTimeout(()=>t.classList.remove("on"),1800)}
@@ -168,7 +174,7 @@ function field(obj,k,onchg){const long=(obj[k]||"").length>70||["text","d"].incl
 function panel(){
  $("#side").innerHTML='<h3 class="f">Panel de control</h3>'+[...Object.keys(D),"security"].map(k=>`<button class="${k===tab?"on":""}" data-k="${k}">${LBL[k]}</button>`).join("")+'<button id="cl">Cerrar sesión</button>';
  $("#side").querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{tab=b.dataset.k;panel()});
- $("#cl").onclick=()=>$("#adm").classList.remove("open");
+ $("#cl").onclick=()=>{sb&&sb.auth.signOut();$("#adm").classList.remove("open")};
  const m=$("#main");m.innerHTML=`<h2>${LBL[tab]}</h2><p class="sub" style="margin-bottom:20px">Los cambios se guardan y se ven en el sitio al instante.</p>`;
  if(tab==="security")return secPanel(m);const d=D[tab];
  if(Array.isArray(d)){
@@ -186,21 +192,25 @@ const DEFPASS="TalentoNorte2026";
 let A=(()=>{try{const x=localStorage.getItem("tn_auth");if(x)return JSON.parse(x)}catch(_){}return{u:"admin",def:true}})();
 let fails=0,lockUntil=0;
 async function hp(p,salt){const k=await crypto.subtle.importKey("raw",new TextEncoder().encode(p),"PBKDF2",false,["deriveBits"]);const b=await crypto.subtle.deriveBits({name:"PBKDF2",salt:new TextEncoder().encode(salt),iterations:150000,hash:"SHA-256"},k,256);return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+async function auth(u,p){if(sb){const{error}=await sb.auth.signInWithPassword({email:u,password:p});return !error}return u===A.u&&await chk(p)}
 const chk=async p=>A.def?p===DEFPASS:await hp(p,A.s)===A.h;
 $("#open").onclick=()=>{$("#lgn").classList.add("open");$("#lu").focus()};
 $("#lx").onclick=()=>$("#lgn").classList.remove("open");
 $("#lf").onsubmit=async ev=>{ev.preventDefault();
  if(Date.now()<lockUntil)return $("#lerr").textContent="Demasiados intentos. Espera "+Math.ceil((lockUntil-Date.now())/1000)+" s.";
  const u=$("#lu").value.trim(),p=$("#lp").value;
- if(u===A.u&&await chk(p)){fails=0;$("#lp").value="";$("#lerr").textContent="";$("#lgn").classList.remove("open");$("#adm").classList.add("open");panel()}
+ if(await auth(u,p)){fails=0;$("#lp").value="";$("#lerr").textContent="";$("#lgn").classList.remove("open");$("#adm").classList.add("open");panel()}
  else{if(++fails>=5){lockUntil=Date.now()+60000;fails=0}$("#lerr").textContent="Usuario o contraseña incorrectos."}};
-function secPanel(m){
+function secSb(m){
+ m.innerHTML+='<p class="sub">Sesión iniciada con tu cuenta de Supabase. Los usuarios se administran desde el panel de Supabase.</p><div class="fld"><label>Contraseña nueva (mínimo 10 caracteres)</label><input id="sn" type="password" autocomplete="new-password"></div><button class="btn sm" id="ss">Cambiar contraseña</button>';
+ $("#ss").onclick=async()=>{const n=$("#sn").value;if(n.length<10)return toast("Mínimo 10 caracteres");const{error}=await sb.auth.updateUser({password:n});toast(error?"No se pudo cambiar":"Contraseña actualizada");$("#sn").value=""}}
+function secPanel(m){if(sb)return secSb(m);
  m.innerHTML+=`${A.def?'<p class="card" style="margin-bottom:16px;border-color:var(--r)">Estás usando el acceso de ejemplo. Cambia usuario y contraseña ahora.</p>':""}<div class="fld"><label>Usuario</label><input id="su" value="${e(A.u)}" autocomplete="username"></div><div class="fld"><label>Contraseña actual</label><input id="sc" type="password" autocomplete="current-password"></div><div class="fld"><label>Contraseña nueva (mínimo 10 caracteres)</label><input id="sn" type="password" autocomplete="new-password"></div><div class="fld"><label>Repetir contraseña nueva</label><input id="sr" type="password" autocomplete="new-password"></div><button class="btn sm" id="ss">Guardar acceso</button>`;
  $("#ss").onclick=async()=>{const u=$("#su").value.trim(),n=$("#sn").value;
   if(!await chk($("#sc").value))return toast("La contraseña actual no es correcta");
   if(u.length<3||n.length<10||n!==$("#sr").value)return toast("Revisa usuario, longitud y que las contraseñas coincidan");
   const s=crypto.randomUUID();A={u,s,h:await hp(n,s)};try{localStorage.setItem("tn_auth",JSON.stringify(A))}catch(_){}toast("Acceso actualizado");panel()}}
-render();
+if(sb)pull();else render();
 </script>
 </body>
 </html>
